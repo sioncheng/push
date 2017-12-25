@@ -6,7 +6,7 @@ import akka.actor.{Actor, ActorRef}
 import akka.io.Tcp.{Close, PeerClosed, Received}
 import com.github.sioncheng.push.log.LogUtil
 import com.github.sioncheng.push.tcp.ConnectionStatus.ConnectionStatus
-import com.github.sioncheng.push.tcp.Messages.{ClientLogon, ConnectionClosed}
+import com.github.sioncheng.push.tcp.Messages.{ClientLogon, ClientPeerClosed}
 import com.github.sioncheng.push.tcp.Protocol.Command
 import spray.json.JsString
 
@@ -32,7 +32,7 @@ class ConnectionHandler(remoteAddress: InetSocketAddress, connection: ActorRef, 
         command.head.foreach(processCommand _)
       }
     case PeerClosed =>
-      clientManager ! ConnectionClosed(clientId, remoteAddress)
+      clientManager ! ClientPeerClosed(clientId, remoteAddress)
       context stop self
     case msg: String =>
       println(msg)
@@ -77,7 +77,7 @@ class ConnectionHandler(remoteAddress: InetSocketAddress, connection: ActorRef, 
 
   def unexpectedCommandException(ex: Exception): Unit = {
     connection ! Close
-    clientManager ! ConnectionClosed(clientId, remoteAddress)
+    clientManager ! ClientPeerClosed(clientId, remoteAddress)
     context stop self
     ex.printStackTrace()
   }

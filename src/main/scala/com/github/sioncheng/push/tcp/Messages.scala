@@ -1,8 +1,8 @@
 package com.github.sioncheng.push.tcp
 
 import java.net.InetSocketAddress
-import java.nio.ByteBuffer
 
+import akka.actor.ActorRef
 import akka.util.ByteString
 import spray.json.JsObject
 
@@ -14,8 +14,11 @@ object Messages {
   case class ServerStatusQuery()
   case class ServerStatusRes(status: ServerStatus)
   case class NewConnection(remoteAddress: InetSocketAddress, localAddress: InetSocketAddress)
-  case class ConnectionClosed(clientId: Option[String], remoteAddress: InetSocketAddress)
+  case class ClientPeerClosed(clientId: Option[String], remoteAddress: InetSocketAddress)
   case class ClientLogon(clientId: String, remoteAddress: InetSocketAddress)
+  case class ShutdownClient(clientId: String)
+  case class QueryClient(clientId: String)
+  case class ClientHandlerInfo(clientId: String, clientHandler: Option[ActorRef])
 }
 
 
