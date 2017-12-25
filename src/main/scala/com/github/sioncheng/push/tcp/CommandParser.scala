@@ -1,13 +1,12 @@
 package com.github.sioncheng.push.tcp
 
 import java.nio.ByteBuffer
-import java.util
-
 import akka.util.ByteString
-import com.github.sioncheng.push.tcp.Protocol.Command
+import com.github.sioncheng.push.tcp.Protocol.CommandObject
 import spray.json._
-import DefaultJsonProtocol._
 import com.github.sioncheng.push.log.LogUtil
+
+case class ParseResult(commands:  List[Either[CommandObject, Exception]])
 
 
 class CommandParser {
@@ -16,8 +15,7 @@ class CommandParser {
   val remainData: ByteBuffer = ByteBuffer.allocate(2052)
   var remainBytesLen = 0
 
-
-  def parseCommand(data: ByteString): Option[List[Either[Command, Exception]]] = {
+  def parseCommand(data: ByteString): Option[ParseResult] = {
 
     LogUtil.debug(s"parse data ${data.utf8String}")
 
@@ -43,7 +41,7 @@ class CommandParser {
     }
 
     var continue = true
-    var result:List[Either[Command, Exception]] = List.empty
+    var result:List[Either[CommandObject, Exception]] = List.empty
     while(continue) {
       if (expectBytesLen > 2048) {
         result = result.++(List(Right(new IndexOutOfBoundsException(s"unexpected command length $expectBytesLen"))))
@@ -60,7 +58,7 @@ class CommandParser {
           val commandObj = commandJsonString.parseJson.asJsObject
           val code = commandObj.fields.get("code").head.asInstanceOf[JsNumber].value.toInt
           val data = commandObj.fields.get("data").head.asJsObject
-          result = result.++(List(Left(Command(code, data))))
+          result = result.++(List(Left(CommandObject(code, data))))
 
           if (remainBytesLen > 4) {
             val lenHead = new Array[Byte](4)
@@ -79,7 +77,7 @@ class CommandParser {
       }
     }
 
-    Some(result)
+    Some(ParseResult(result))
   }
 
 }

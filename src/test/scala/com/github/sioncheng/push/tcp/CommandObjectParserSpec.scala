@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 import akka.util.ByteString
 import org.scalatest.{Matchers, WordSpecLike}
 
-class CommandParserSpec extends WordSpecLike with Matchers {
+class CommandObjectParserSpec extends WordSpecLike with Matchers {
 
   "command parser" must {
     "be able to parse command" in {
@@ -27,8 +27,8 @@ class CommandParserSpec extends WordSpecLike with Matchers {
       result.isEmpty should be(false)
       println(result)
 
-      val commandResult1 = result.get.head
-      val commandResult2 = result.get.last
+      val commandResult1 = result.get.commands.head
+      val commandResult2 = result.get.commands.last
       commandResult1.isLeft should be(true)
       commandResult2.isLeft should be(true)
       commandResult1.left.get.code should be (1)
@@ -36,7 +36,7 @@ class CommandParserSpec extends WordSpecLike with Matchers {
 
       val result2 = commandParser.parseCommand(command3_2)
       result2.isEmpty should be (false)
-      val commandResult3 = result2.get.head
+      val commandResult3 = result2.get.commands.head
       commandResult3.isLeft should be (true)
       commandResult3.left.get.data.toString().endsWith(""""321234567891"}""") should be (true)
     }

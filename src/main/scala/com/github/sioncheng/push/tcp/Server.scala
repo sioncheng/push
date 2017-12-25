@@ -44,6 +44,5 @@ class Server(host: String, port: Int, clientManager: ActorRef) extends Actor {
     case ServerStatusQuery =>
       LogUtil.debug("ask server status")
       sender() ! ServerStatusRes(ServerStatus(boundTo))
-
   }
 }

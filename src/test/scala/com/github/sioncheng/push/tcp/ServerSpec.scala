@@ -4,10 +4,10 @@ import java.net.InetSocketAddress
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.io.{IO, Tcp}
-import akka.io.Tcp.{Connect, Connected, Register, Write}
+import akka.io.Tcp._
 import akka.testkit.{ImplicitSender, TestKit}
 import com.github.sioncheng.push.tcp.Messages._
-import com.github.sioncheng.push.tcp.Protocol.Command
+import com.github.sioncheng.push.tcp.Protocol.CommandObject
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import spray.json.{JsObject, JsString}
 
@@ -20,15 +20,21 @@ class TestClient(clientListener: ActorRef) extends Actor {
 
   var connection: ActorRef = null
 
+  val commandParser = new CommandParser
+
   override def receive: Receive = {
     case _ @ Connected(remote, local) =>
       println(remote, local)
       connection = sender()
       connection ! Register(self)
 
-    case command: Command =>
+    case command: CommandObject =>
       connection ! Write(Protocol.serializeCommand(command))
 
+    case Received(data) =>
+      println(s"test client received $data")
+      val commands = commandParser.parseCommand(data)
+      clientListener ! commands
   }
 }
 
@@ -61,7 +67,7 @@ class ServerSpec() extends TestKit(ActorSystem("ServerActorSpec"))
 
   "A Server Actor" must {
     "bind to local address then accept new conn and process logon" in {
-      val clientManagerTester = system.actorOf(Props(classOf[ClientManagerTester], self))
+      val clientManagerTester = system.actorOf(Props(classOf[ClientManager]))
       val props = Props(classOf[Server], "0.0.0.0", 8080, clientManagerTester);
       val server = system.actorOf(props)
       Thread.sleep(100)
@@ -79,15 +85,21 @@ class ServerSpec() extends TestKit(ActorSystem("ServerActorSpec"))
           true
       }*/
 
-      val loginCommand = Command(Protocol.LoginRequest, JsObject("clientId"->JsString("321234567890")))
+      val loginCommand = CommandObject(Protocol.LoginRequest, JsObject("clientId"->JsString("321234567890")))
       testClient ! loginCommand
 
-      /*Thread.sleep(100)
+      Thread.sleep(100)
 
       expectMsgPF() {
-        case c @ ClientLogon(clientId, remoteAddress) if "321234567890".equals(clientId) =>
-          println(c, clientId, remoteAddress)
-      }*/
+        case parseResult : Option[ParseResult]
+          if parseResult.get.commands.length == 1
+            && parseResult.get.commands.head.isLeft
+            && parseResult.get.commands.head.left.get.code == Protocol.LoginResponse =>
+          val command = parseResult.get.commands.head.left.get
+          println(command.code, command.data.toString())
+
+      }
+
 
       Thread.sleep(100)
 

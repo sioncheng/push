@@ -2,7 +2,7 @@ package com.github.sioncheng.push.tcp
 
 import org.scalatest.{Matchers, WordSpecLike}
 import spray.json._
-import com.github.sioncheng.push.tcp.Protocol.Command
+import com.github.sioncheng.push.tcp.Protocol.CommandObject
 
 class SprayJsonSpec extends WordSpecLike with Matchers {
 
@@ -16,7 +16,7 @@ class SprayJsonSpec extends WordSpecLike with Matchers {
     "be able to serialize command object" in {
       val jsonStr = """{"a":1,"b":{"c":1}}"""
       val jso = jsonStr.parseJson.asJsObject
-      val cmd = Command(1, jso)
+      val cmd = CommandObject(1, jso)
       import Protocol.CommandProtocol._
       val cmdJson = cmd.toJson
       println(cmdJson.prettyPrint)

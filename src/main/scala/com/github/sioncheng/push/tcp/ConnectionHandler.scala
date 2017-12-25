@@ -3,11 +3,11 @@ package com.github.sioncheng.push.tcp
 import java.net.InetSocketAddress
 
 import akka.actor.{Actor, ActorRef}
-import akka.io.Tcp.{Close, PeerClosed, Received}
+import akka.io.Tcp.{Close, PeerClosed, Received, Write}
 import com.github.sioncheng.push.log.LogUtil
 import com.github.sioncheng.push.tcp.ConnectionStatus.ConnectionStatus
 import com.github.sioncheng.push.tcp.Messages.{ClientLogon, ClientPeerClosed}
-import com.github.sioncheng.push.tcp.Protocol.Command
+import com.github.sioncheng.push.tcp.Protocol.CommandObject
 import spray.json.JsString
 
 object ConnectionStatus extends Enumeration {
@@ -29,16 +29,18 @@ class ConnectionHandler(remoteAddress: InetSocketAddress, connection: ActorRef, 
       if (command.isEmpty) {
         LogUtil.warn("received uncompleted command data")
       } else {
-        command.head.foreach(processCommand _)
+        command.head.commands.foreach(processCommand _)
       }
     case PeerClosed =>
       clientManager ! ClientPeerClosed(clientId, remoteAddress)
       context stop self
-    case msg: String =>
-      println(msg)
+    case cmd: CommandObject =>
+      val msg = Protocol.serializeCommand(cmd)
+      LogUtil.debug(s"send to client ${msg.utf8String}")
+      connection ! Write(msg)
   }
 
-  def processCommand(command: Either[Command, Exception]): Unit = {
+  def processCommand(command: Either[CommandObject, Exception]): Unit = {
     println(s"process command $command")
     try {
       if (status == ConnectionStatus.Init) {
@@ -53,7 +55,7 @@ class ConnectionHandler(remoteAddress: InetSocketAddress, connection: ActorRef, 
     }
   }
 
-  def expectLogin(value: Either[Protocol.Command, Exception]): Unit = {
+  def expectLogin(value: Either[Protocol.CommandObject, Exception]): Unit = {
     value match {
       case _ @ Left(cmd) =>
         //
@@ -71,7 +73,7 @@ class ConnectionHandler(remoteAddress: InetSocketAddress, connection: ActorRef, 
     }
   }
 
-  def expectOther(value: Either[Protocol.Command, Exception]): Unit = {
+  def expectOther(value: Either[Protocol.CommandObject, Exception]): Unit = {
 
   }
 
