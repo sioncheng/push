@@ -74,13 +74,18 @@ class ConnectionHandler(remoteAddress: InetSocketAddress, connection: ActorRef, 
   }
 
   def expectOther(value: Either[Protocol.CommandObject, Exception]): Unit = {
-
+    value match {
+      case Left(cmd) =>
+        //
+        println(cmd)
+      case Right(ex) =>
+        unexpectedCommandException(ex)
+    }
   }
 
   def unexpectedCommandException(ex: Exception): Unit = {
     connection ! Close
     clientManager ! ClientPeerClosed(clientId, remoteAddress)
     context stop self
-    ex.printStackTrace()
   }
 }

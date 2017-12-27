@@ -23,6 +23,10 @@ class ClientManager extends Actor {
       clientLogon(clientId, sender())
     case c: CommandObject =>
       LogUtil.debug(s"received command ${c}")
+      processCommand(c, sender())
+    case ClientPeerClosed(clientId, remoteAddress) =>
+      LogUtil.debug(s"client peer closed ${clientId} $remoteAddress")
+      clientId.foreach(x => {clients.remove(x)})
   }
 
   def clientLogon(clientId: String, connectionHandler: ActorRef): Unit = {

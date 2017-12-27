@@ -6,11 +6,14 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.io.{IO, Tcp}
 import akka.io.Tcp._
 import akka.testkit.{ImplicitSender, TestKit}
+import akka.util.ByteString
 import com.github.sioncheng.push.tcp.Messages._
 import com.github.sioncheng.push.tcp.Protocol.CommandObject
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import spray.json.{JsObject, JsString}
 
+
+case class WrongData(s: ByteString)
 
 class TestClient(clientListener: ActorRef) extends Actor {
 
@@ -34,7 +37,13 @@ class TestClient(clientListener: ActorRef) extends Actor {
     case Received(data) =>
       println(s"test client received $data")
       val commands = commandParser.parseCommand(data)
-      clientListener ! commands
+      commands.foreach(clientListener ! _)
+
+    case WrongData(wd) =>
+      connection ! Write(wd)
+
+    case PeerClosed =>
+      println("server side closed this connection")
   }
 }
 
@@ -66,17 +75,17 @@ class ServerSpec() extends TestKit(ActorSystem("ServerActorSpec"))
   }
 
   "A Server Actor" must {
+    val clientManager = system.actorOf(Props(classOf[ClientManager]))
+    val props = Props(classOf[Server], "0.0.0.0", 8080, clientManager);
+    val server = system.actorOf(props)
+    Thread.sleep(100)
+    server ! ServerStatusQuery
+    expectMsg(ServerStatusRes(ServerStatus("/0:0:0:0:0:0:0:0:8080")))
+
+    val testClient = system.actorOf(Props(classOf[TestClient],self))
+
     "bind to local address then accept new conn and process logon" in {
-      val clientManagerTester = system.actorOf(Props(classOf[ClientManager]))
-      val props = Props(classOf[Server], "0.0.0.0", 8080, clientManagerTester);
-      val server = system.actorOf(props)
-      Thread.sleep(100)
-      server ! ServerStatusQuery
-      expectMsg(ServerStatusRes(ServerStatus("/0:0:0:0:0:0:0:0:8080")))
 
-      val testClient = system.actorOf(Props(classOf[TestClient],self))
-
-      Thread.sleep(100)
       //expectMsgAnyClassOf(classOf[Connected])
       /*
       expectMsgPF() {
@@ -91,11 +100,11 @@ class ServerSpec() extends TestKit(ActorSystem("ServerActorSpec"))
       Thread.sleep(100)
 
       expectMsgPF() {
-        case parseResult : Option[ParseResult]
-          if parseResult.get.commands.length == 1
-            && parseResult.get.commands.head.isLeft
-            && parseResult.get.commands.head.left.get.code == Protocol.LoginResponse =>
-          val command = parseResult.get.commands.head.left.get
+        case parseResult : ParseResult
+          if parseResult.commands.length == 1
+            && parseResult.commands.head.isLeft
+            && parseResult.commands.head.left.get.code == Protocol.LoginResponse =>
+          val command = parseResult.commands.head.left.get
           println(command.code, command.data.toString())
 
       }
@@ -103,7 +112,7 @@ class ServerSpec() extends TestKit(ActorSystem("ServerActorSpec"))
 
       Thread.sleep(100)
 
-      clientManagerTester ! QueryClient("321234567890")
+      clientManager ! QueryClient("321234567890")
 
       Thread.sleep(100)
 
@@ -112,5 +121,43 @@ class ServerSpec() extends TestKit(ActorSystem("ServerActorSpec"))
           println(ch, clientHandler.get)
       }
     }
+
+    "send notification to client" in {
+      val notificationCommand = CommandObject(Protocol.SendNotification
+        , JsObject("clientId"->JsString("321234567890"),"title"->JsString("push"), "body"->JsString("body text")))
+      clientManager ! notificationCommand
+
+      expectMsgPF() {
+        case accept : SendNotificationAccept if accept.accepted =>
+          println(s"send notification accepted ${accept.c.data.toString()}")
+      }
+
+      Thread.sleep(100)
+
+      expectMsgPF() {
+        case parseResult : ParseResult
+          if parseResult.commands.length == 1
+            && parseResult.commands.head.isLeft
+            && parseResult.commands.head.left.get.code == Protocol.SendNotification =>
+          println(parseResult.commands.head.left.get)
+      }
+    }
+
+    "send wrong data to server" in {
+      testClient ! WrongData(ByteString.fromString("""  hello"""))
+
+      Thread.sleep(100)
+
+      clientManager ! QueryClient("321234567890")
+
+      Thread.sleep(100)
+
+      expectMsgPF() {
+        case ClientHandlerInfo(clientId, clientHandler) if "321234567890".equals(clientId) && clientHandler.isEmpty =>
+          println("321234567890 closed")
+      }
+    }
+
+    Thread.sleep(100)
   }
 }

@@ -19,7 +19,6 @@ class CommandParser {
 
     LogUtil.debug(s"parse data ${data.utf8String}")
 
-    LogUtil.debug(s"limit ${remainData.limit()} capacity ${remainData.capacity()}")
     if (remainData.limit() != remainData.capacity()) {
       remainData.compact()
     }
@@ -27,21 +26,28 @@ class CommandParser {
     remainBytesLen += data.length
     remainData.flip()
 
+    var continue = true
+    var result:List[Either[CommandObject, Exception]] = List.empty
+
     if (expectBytesLen == 0) {
       if (remainBytesLen < 4) {
         None
       } else {
-        val lenHead = new Array[Byte](4)
-        remainData.get(lenHead)
-        val headStr = new String(lenHead).trim
-        println(s"head string [$headStr]")
-        expectBytesLen = Integer.parseInt(headStr)
-        remainBytesLen -= 4
+        try {
+          val lenHead = new Array[Byte](4)
+          remainData.get(lenHead)
+          val headStr = new String(lenHead).trim
+          expectBytesLen = Integer.parseInt(headStr)
+          remainBytesLen -= 4
+        } catch {
+          case e: Exception =>
+            result = result.++(List(Right(e)))
+            continue = false
+        }
       }
     }
 
-    var continue = true
-    var result:List[Either[CommandObject, Exception]] = List.empty
+
     while(continue) {
       if (expectBytesLen > 2048) {
         result = result.++(List(Right(new IndexOutOfBoundsException(s"unexpected command length $expectBytesLen"))))
@@ -66,12 +72,13 @@ class CommandParser {
             expectBytesLen = Integer.parseInt(new String(lenHead).trim)
             remainBytesLen -= 4
           } else {
+            expectBytesLen = 0
             continue = false
           }
 
         } catch {
          case e: Exception =>
-            result = result.::(Right(e))
+            result = result.++(List(Right(e)))
             continue = false
         }
       }
