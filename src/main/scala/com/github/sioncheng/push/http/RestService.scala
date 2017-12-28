@@ -8,9 +8,9 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.util.{ByteString, Timeout}
 import com.github.sioncheng.push.log.LogUtil
+import com.github.sioncheng.push.tcp.Messages.SendNotificationAccept
 import com.github.sioncheng.push.tcp.Protocol
 import com.github.sioncheng.push.tcp.Protocol.CommandObject
-import spray.json.{JsObject, JsString}
 
 import scala.concurrent.duration._
 import scala.concurrent.Future
@@ -56,16 +56,23 @@ class RestService(host: String, port: Int, clientManager: ActorRef) extends Acto
   }
 
   def processSendNotification(entity: HttpEntity): Future[HttpResponse] = {
-    println(entity)
-    entity.dataBytes.runWith(Sink.fold(ByteString.empty)(_ ++ _)).map(_.utf8String) map { result =>
-      println(result)
-    }
-    //Future(HttpResponse(404, entity = "Unknown resource!"))
+    entity.dataBytes.runWith(Sink.fold(ByteString.empty)(_ ++ _)).map(_.utf8String).flatMap(jsonData => {
+      import spray.json._
+      val jsonObj = jsonData.parseJson.asJsObject
+      val command = CommandObject(Protocol.SendNotification, jsonObj)
 
-    implicit val timeout = Timeout(2 second)
-    ask(clientManager, CommandObject(Protocol.SendNotification, JsObject("clientId"->JsString("a")))).flatMap(x => {
-      println(x)
-      Future(HttpResponse(404, entity = "Unknown resource!"))
+      implicit val timeout = Timeout(2 second)
+      ask(clientManager, command).map( x => {
+        val accepted = x.asInstanceOf[SendNotificationAccept]
+        accepted.accepted match {
+          case true =>
+            HttpResponse(200, entity = "done!")
+          case false =>
+            HttpResponse(404, entity = "Unknown resource!")
+        }
+      })
     })
+
+
   }
 }

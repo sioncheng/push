@@ -6,12 +6,12 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.stream.ActorMaterializer
 import akka.testkit.{ImplicitSender, TestKit}
-import com.github.sioncheng.push.tcp.Messages.{QueryClient, SendNotificationAccept}
+import com.github.sioncheng.push.tcp.Messages.SendNotificationAccept
 import com.github.sioncheng.push.tcp.Protocol.CommandObject
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import spray.json.{JsObject, JsString}
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
 
 
 class MockClientManager extends Actor {
@@ -19,7 +19,7 @@ class MockClientManager extends Actor {
 
   override def receive: Receive = {
     case x : CommandObject =>
-      print(x)
+      println(x)
       sender() ! SendNotificationAccept(true, x)
   }
 }
@@ -54,20 +54,21 @@ class RestServiceSpec() extends TestKit(ActorSystem("RestServiceSpec"))
         println(f.get)
       })
 
-      val formData = FormData(Map(
-        "Keywords" -> "query", "Count" -> "25"
-      ))
+
+      val jsonRequestData =  JsObject("clientId" -> JsString("321234567890")
+        ,"title" -> JsString("title")
+        ,"body" -> JsString("notification body")).toString()
+
       val headers = scala.collection.immutable.Seq(
-        RawHeader("accept", "application/json"),
-        RawHeader("content-type", "application/json")
+        RawHeader("accept", "application/json")
       )
       val sendNotificationResponse: Future[HttpResponse] = Http().singleRequest(HttpRequest(HttpMethods.POST,
         "http://localhost:8080/send-notification",
         headers,
-        formData.toEntity))
+        HttpEntity(ContentTypes.`application/json`, jsonRequestData)))
 
-      sendNotificationResponse.onComplete( f => {
-        print(f.get)
+        sendNotificationResponse.onComplete( f => {
+        println(f.get)
         f.isSuccess should be(true)
       })
 
