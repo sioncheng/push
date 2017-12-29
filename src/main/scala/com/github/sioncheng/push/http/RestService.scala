@@ -22,6 +22,8 @@ class RestService(host: String, port: Int, clientManager: ActorRef) extends Acto
   implicit val ec = system.dispatcher
   implicit val materializer = ActorMaterializer()
 
+  val logTitle = "Rest Service"
+
   val handler: (HttpRequest => Future[HttpResponse] ) = {
     case HttpRequest(HttpMethods.GET, Uri.Path("/"), _, _, _) =>
       Future(HttpResponse(entity = HttpEntity(
@@ -41,9 +43,9 @@ class RestService(host: String, port: Int, clientManager: ActorRef) extends Acto
 
   bindFuture.onComplete {
     case Success(v) =>
-      LogUtil.debug(s"rest service bind success $v")
+      LogUtil.debug(logTitle, s"rest service bind success $v")
     case Failure(f) =>
-      LogUtil.error(s"rest service bind failure $f")
+      LogUtil.error(logTitle, s"rest service bind failure $f")
   }
 
   override def receive: Receive = {

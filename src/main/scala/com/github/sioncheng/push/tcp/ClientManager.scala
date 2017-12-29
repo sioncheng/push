@@ -1,7 +1,8 @@
 package com.github.sioncheng.push.tcp
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{Actor, ActorRef, Props}
 import com.github.sioncheng.push.log.LogUtil
+import com.github.sioncheng.push.storage.{ConfirmedNotification, FlyingNotification, NotificationManager, OfflineNotification}
 import com.github.sioncheng.push.tcp.Messages._
 import com.github.sioncheng.push.tcp.Protocol.CommandObject
 import spray.json.{JsObject, JsString}
@@ -12,20 +13,24 @@ class ClientManager extends Actor {
 
   val clients = new mutable.HashMap[String, ActorRef]()
 
+  val notificationManager = context.system.actorOf(Props(classOf[NotificationManager]))
+
+  val logTitle = "Client Manager"
+
   override def receive: Receive = {
     case QueryClient(clientId) =>
-      LogUtil.debug(s"query client ${clientId}")
+      LogUtil.debug(logTitle, s"query client ${clientId}")
       queryClient(clientId, sender())
     case NewConnection(remote, local) =>
-      LogUtil.debug(s"new conn $remote $local")
+      LogUtil.debug(logTitle, s"new conn $remote $local")
     case ClientLogon(clientId, remoteAddress) =>
-      LogUtil.debug(s"client login $clientId $remoteAddress")
+      LogUtil.debug(logTitle, s"client login $clientId $remoteAddress")
       clientLogon(clientId, sender())
     case c: CommandObject =>
-      LogUtil.debug(s"received command ${c}")
+      LogUtil.debug(logTitle, s"received command ${c}")
       processCommand(c, sender())
     case ClientPeerClosed(clientId, remoteAddress) =>
-      LogUtil.debug(s"client peer closed ${clientId} $remoteAddress")
+      LogUtil.debug(logTitle, s"client peer closed ${clientId} $remoteAddress")
       clientId.foreach(x => {clients.remove(x)})
   }
 
@@ -52,15 +57,15 @@ class ClientManager extends Actor {
         clientHandler.isEmpty match {
           case true =>
             sender ! SendNotificationAccept(false, c)
+            notificationManager ! OfflineNotification(c.data)
           case false =>
             sender ! SendNotificationAccept(true, c)
-            sendNotification(c, clientHandler.get)
+            clientHandler.get ! c
+            notificationManager ! FlyingNotification(c.data)
         }
+      case Protocol.ReceivedNotification =>
+        notificationManager ! ConfirmedNotification(c.data)
     }
-  }
-
-  def sendNotification(commandObject: Protocol.CommandObject, clientHandler: ActorRef): Unit = {
-    clientHandler ! commandObject
   }
 
 }

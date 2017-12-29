@@ -22,12 +22,14 @@ class ConnectionHandler(remoteAddress: InetSocketAddress, connection: ActorRef, 
   val commandParser = new CommandParser
   var clientId: Option[String] = None
 
+  val logTitle = "Connection Handler"
+
   def receive: Receive = {
     case Received(data) =>
-      LogUtil.debug(s"received data ${data.utf8String}")
+      LogUtil.debug(logTitle, s"received data ${data.utf8String}")
       val command = commandParser.parseCommand(data)
       if (command.isEmpty) {
-        LogUtil.warn("received uncompleted command data")
+        LogUtil.warn(logTitle, "received uncompleted command data")
       } else {
         command.head.commands.foreach(processCommand _)
       }
@@ -36,12 +38,12 @@ class ConnectionHandler(remoteAddress: InetSocketAddress, connection: ActorRef, 
       context stop self
     case cmd: CommandObject =>
       val msg = Protocol.serializeCommand(cmd)
-      LogUtil.debug(s"send to client ${msg.utf8String}")
+      LogUtil.debug(logTitle, s"send to client ${msg.utf8String}")
       connection ! Write(msg)
   }
 
   def processCommand(command: Either[CommandObject, Exception]): Unit = {
-    println(s"process command $command")
+    LogUtil.debug(logTitle, s"process command $command")
     try {
       if (status == ConnectionStatus.Init) {
         expectLogin(command)
@@ -50,7 +52,7 @@ class ConnectionHandler(remoteAddress: InetSocketAddress, connection: ActorRef, 
       }
     } catch {
       case e : Exception =>
-        LogUtil.error("process command err")
+        LogUtil.error(logTitle, "process command err")
         unexpectedCommandException(e)
     }
   }
@@ -77,7 +79,7 @@ class ConnectionHandler(remoteAddress: InetSocketAddress, connection: ActorRef, 
     value match {
       case Left(cmd) =>
         //
-        println(cmd)
+        clientManager ! cmd
       case Right(ex) =>
         unexpectedCommandException(ex)
     }

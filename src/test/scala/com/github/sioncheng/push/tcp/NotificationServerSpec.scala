@@ -63,7 +63,7 @@ class ClientManagerTester(specActor: ActorRef) extends Actor {
   }
 }
 
-class ServerSpec() extends TestKit(ActorSystem("ServerActorSpec"))
+class NotificationServerSpec() extends TestKit(ActorSystem("ServerActorSpec"))
   with ImplicitSender
   with WordSpecLike
   with Matchers
@@ -76,7 +76,7 @@ class ServerSpec() extends TestKit(ActorSystem("ServerActorSpec"))
 
   "A Server Actor" must {
     val clientManager = system.actorOf(Props(classOf[ClientManager]))
-    val props = Props(classOf[Server], "0.0.0.0", 8080, clientManager);
+    val props = Props(classOf[NotificationServer], "0.0.0.0", 8080, clientManager);
     val server = system.actorOf(props)
     Thread.sleep(100)
     server ! ServerStatusQuery

@@ -15,9 +15,11 @@ class CommandParser {
   val remainData: ByteBuffer = ByteBuffer.allocate(2052)
   var remainBytesLen = 0
 
+  val logTitle = "Command Parser"
+
   def parseCommand(data: ByteString): Option[ParseResult] = {
 
-    LogUtil.debug(s"parse data ${data.utf8String}")
+    LogUtil.debug(logTitle, s"parse data ${data.utf8String}")
 
     if (remainData.limit() != remainData.capacity()) {
       remainData.compact()
@@ -53,7 +55,7 @@ class CommandParser {
         result = result.++(List(Right(new IndexOutOfBoundsException(s"unexpected command length $expectBytesLen"))))
         continue = false
       } else if (remainBytesLen < expectBytesLen) {
-        LogUtil.debug(s"expect ${expectBytesLen} but remain ${remainBytesLen}, break")
+        LogUtil.debug(logTitle, s"expect ${expectBytesLen} but remain ${remainBytesLen}, break")
         continue = false
       } else {
         val commandData = new Array[Byte](expectBytesLen)
