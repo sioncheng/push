@@ -129,7 +129,7 @@ class NotificationServerSpec() extends TestKit(ActorSystem("ServerActorSpec"))
 
       expectMsgPF() {
         case accept : SendNotificationAccept if accept.accepted =>
-          println(s"send notification accepted ${accept.c.data.toString()}")
+          println(s"send notification accepted ${accept.notification.toString()}")
       }
 
       Thread.sleep(100)

@@ -1,19 +1,18 @@
 package com.github.sioncheng.push.tcp
 
-import akka.actor.{Actor, ActorRef, Props}
-import com.github.sioncheng.push.log.LogUtil
-import com.github.sioncheng.push.storage.{ConfirmedNotification, FlyingNotification, NotificationManager, OfflineNotification}
+import java.util.UUID
+
+import akka.actor.{Actor, ActorRef}
+import com.github.sioncheng.push.log.{DateUtil, LogUtil}
 import com.github.sioncheng.push.tcp.Messages._
 import com.github.sioncheng.push.tcp.Protocol.CommandObject
-import spray.json.{JsObject, JsString}
+import spray.json.{ JsObject, JsString}
 
 import scala.collection.mutable
 
-class ClientManager extends Actor {
+class ClientManager(notificationManager: ActorRef) extends Actor {
 
   val clients = new mutable.HashMap[String, ActorRef]()
-
-  val notificationManager = context.system.actorOf(Props(classOf[NotificationManager]))
 
   val logTitle = "Client Manager"
 
@@ -54,18 +53,28 @@ class ClientManager extends Actor {
       case Protocol.SendNotification =>
         val clientId = c.data.fields.get("clientId").get.asInstanceOf[JsString].value
         val clientHandler = clients.get(clientId)
+        val notification = markNotification(c.data)
         clientHandler.isEmpty match {
           case true =>
-            sender ! SendNotificationAccept(false, c)
-            notificationManager ! OfflineNotification(c.data)
+            sender ! SendNotificationAccept(false, notification)
+            notificationManager ! OfflineNotification(notification)
           case false =>
-            sender ! SendNotificationAccept(true, c)
-            clientHandler.get ! c
-            notificationManager ! FlyingNotification(c.data)
+            sender ! SendNotificationAccept(true, notification)
+            clientHandler.get ! CommandObject(c.code, notification)
+            notificationManager ! FlyingNotification(notification)
         }
       case Protocol.ReceivedNotification =>
         notificationManager ! ConfirmedNotification(c.data)
     }
+  }
+
+  private def markNotification(notification: JsObject): JsObject = {
+    import spray.json._
+    import DefaultJsonProtocol._
+    val uuid = UUID.randomUUID().toString.replace("-","")
+    val timestamp = "timestamp" -> JsNumber(DateUtil.getTimestampOfNow())
+    val messageId = "messageId" -> JsString(uuid)
+    notification.fields.+(timestamp).+(messageId).toJson.asJsObject
   }
 
 }

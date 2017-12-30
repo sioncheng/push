@@ -5,6 +5,9 @@ version := "0.1"
 scalaVersion := "2.12.4"
 
 libraryDependencies ++= Seq(
+  "org.apache.hadoop" % "hadoop-mapred" % "0.22.0",
+  "org.apache.hadoop" % "hadoop-common" % "2.6.0",
+  "org.apache.hbase" % "hbase-common" % "1.3.1",
   "org.apache.hbase" % "hbase-client" % "1.3.1",
   "com.typesafe.akka" %% "akka-actor" % "2.4.20",
   "com.typesafe.akka" %% "akka-stream" % "2.4.20",

@@ -20,7 +20,7 @@ object Messages {
   case class ShutdownClient(clientId: String)
   case class QueryClient(clientId: String)
   case class ClientHandlerInfo(clientId: String, clientHandler: Option[ActorRef])
-  case class SendNotificationAccept(accepted: Boolean, c: CommandObject)
+  case class SendNotificationAccept(accepted: Boolean, notification: JsObject)
 }
 
 
