@@ -1,11 +1,13 @@
 package com.github.sioncheng.push.storage
 
+import java.util.UUID
+
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
 import com.github.sioncheng.push.conf.HBaseStorageConfig
 import com.github.sioncheng.push.log.DateUtil
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
-import spray.json.{JsObject, JsString}
+import spray.json.{JsNumber, JsObject, JsString}
 
 import scala.concurrent.duration._
 
@@ -26,7 +28,9 @@ class HBaseClientSpec extends TestKit(ActorSystem("HBaseClientSpec"))
     "be able to save confirmed notification" in {
       val notification = JsObject("clientId" -> JsString("321234567890")
         , "title" -> JsString("title")
-        , "body" -> JsString("body"))
+        , "body" -> JsString("body")
+        , "timestamp" -> JsNumber(DateUtil.getTimestampOfNow())
+        , "messageId" -> JsString(UUID.randomUUID().toString.replace("-","")))
 
       hbaseClient ! SaveConfirmedNotification(notification)
     }
@@ -48,7 +52,9 @@ class HBaseClientSpec extends TestKit(ActorSystem("HBaseClientSpec"))
     "be able to save offline notification and query it" in {
       val notification = JsObject("clientId" -> JsString("321234567890")
         , "title" -> JsString("title")
-        , "body" -> JsString("body"))
+        , "body" -> JsString("body")
+        , "timestamp" -> JsNumber(DateUtil.getTimestampOfNow())
+        , "messageId" -> JsString(UUID.randomUUID().toString.replace("-","")))
 
       hbaseClient ! SaveOfflineNotification(notification)
 

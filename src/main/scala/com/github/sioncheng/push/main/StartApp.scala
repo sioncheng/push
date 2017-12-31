@@ -20,7 +20,7 @@ object StartApp extends App {
 
   val clientManager = system.actorOf(Props(classOf[ClientManager], notificationManager))
 
-  val restService = system.actorOf(Props(classOf[RestService], "0.0.0.0", 8080, clientManager))
+  val restService = system.actorOf(Props(classOf[RestService], "0.0.0.0", 8080, clientManager, hbaseClient))
 
   val server = system.actorOf(Props(classOf[NotificationServer], "0.0.0.0", 8181, clientManager))
 

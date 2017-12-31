@@ -20,7 +20,7 @@ class MockClientManager extends Actor {
   override def receive: Receive = {
     case x : CommandObject =>
       println(x)
-      sender() ! SendNotificationAccept(true, x)
+      sender() ! SendNotificationAccept(true, x.data)
   }
 }
 

@@ -8,6 +8,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.util.{ByteString, Timeout}
 import com.github.sioncheng.push.log.LogUtil
+import com.github.sioncheng.push.storage.{QueryConfirmedNotifications, QueryNotificationsResult}
 import com.github.sioncheng.push.tcp.Messages.SendNotificationAccept
 import com.github.sioncheng.push.tcp.Protocol
 import com.github.sioncheng.push.tcp.Protocol.CommandObject
@@ -16,7 +17,7 @@ import scala.concurrent.duration._
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-class RestService(host: String, port: Int, clientManager: ActorRef) extends Actor {
+class RestService(host: String, port: Int, clientManager: ActorRef, hbaseClient: ActorRef) extends Actor {
 
   implicit val system =  context.system
   implicit val ec = system.dispatcher
@@ -32,7 +33,8 @@ class RestService(host: String, port: Int, clientManager: ActorRef) extends Acto
 
     case HttpRequest(HttpMethods.POST, Uri.Path("/send-notification"), _, entity, _) =>
       processSendNotification(entity)
-
+    case HttpRequest(HttpMethods.POST, Uri.Path("/query-notification"), _, entity, _) =>
+      processQueryNotification(entity)
     case r: HttpRequest =>
       r.discardEntityBytes() // important to drain incoming HTTP Entity stream
       Future(HttpResponse(404, entity = "Unknown resource!"))
@@ -74,7 +76,22 @@ class RestService(host: String, port: Int, clientManager: ActorRef) extends Acto
         }
       })
     })
+  }
 
+  def processQueryNotification(entity: HttpEntity): Future[HttpResponse] = {
+    entity.dataBytes.runWith(Sink.fold(ByteString.empty)(_ ++ _)).map(_.utf8String).flatMap(jsonData => {
+      import spray.json._
+      import DefaultJsonProtocol._
+      val jsonObj = jsonData.parseJson.asJsObject
+      val clientId = jsonObj.fields.get("clientId").get.asInstanceOf[JsString].value
+      val beginTimestamp = jsonObj.fields.get("begin").get.asInstanceOf[JsNumber].value.toLong
+      val endTimestamp = jsonObj.fields.get("end").get.asInstanceOf[JsNumber].value.toLong
 
+      implicit val timeout = Timeout(2 second)
+      ask(hbaseClient, QueryConfirmedNotifications(clientId , beginTimestamp, endTimestamp)).map (x => {
+        val notifications = x.asInstanceOf[QueryNotificationsResult].notifications
+        HttpResponse(200, entity = HttpEntity(ContentTypes.`application/json`, notifications.toJson.toString()))
+      })
+    })
   }
 }
