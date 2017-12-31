@@ -70,9 +70,9 @@ class RestService(host: String, port: Int, clientManager: ActorRef, hbaseClient:
         val accepted = x.asInstanceOf[SendNotificationAccept]
         accepted.accepted match {
           case true =>
-            HttpResponse(200, entity = "done!")
+            HttpResponse(200, entity = HttpEntity(ContentTypes.`application/json`, """{"result":"ok"}"""))
           case false =>
-            HttpResponse(404, entity = "Unknown resource!")
+            HttpResponse(200, entity = HttpEntity(ContentTypes.`application/json`, """{"result":"offline"}"""))
         }
       })
     })
