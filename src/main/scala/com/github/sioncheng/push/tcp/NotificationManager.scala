@@ -38,5 +38,8 @@ class NotificationManager(hBaseClient: ActorRef) extends Actor {
         case 0 =>
           hBaseClient ! CheckAndSaveUnconfirmedNotification(notifications)
       }
+    case x @ QueryOfflineNotifications(clientId) =>
+      LogUtil.debug(logTitle, s"query offline notification ${clientId}")
+      hBaseClient.forward(x)
   }
 }

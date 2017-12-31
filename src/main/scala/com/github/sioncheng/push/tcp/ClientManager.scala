@@ -4,9 +4,10 @@ import java.util.UUID
 
 import akka.actor.{Actor, ActorRef}
 import com.github.sioncheng.push.log.{DateUtil, LogUtil}
+import com.github.sioncheng.push.storage.{QueryNotificationsResult, QueryOfflineNotifications}
 import com.github.sioncheng.push.tcp.Messages._
 import com.github.sioncheng.push.tcp.Protocol.CommandObject
-import spray.json.{ JsObject, JsString}
+import spray.json.{JsObject, JsString}
 
 import scala.collection.mutable
 
@@ -31,12 +32,16 @@ class ClientManager(notificationManager: ActorRef) extends Actor {
     case ClientPeerClosed(clientId, remoteAddress) =>
       LogUtil.debug(logTitle, s"client peer closed ${clientId} $remoteAddress")
       clientId.foreach(x => {clients.remove(x)})
+    case QueryNotificationsResult(clientId, notifications) =>
+      LogUtil.debug(logTitle, s"${notifications.length} offline notifications for $clientId")
+      notifications.foreach(resendOfflineNotification _)
   }
 
   def clientLogon(clientId: String, connectionHandler: ActorRef): Unit = {
     clients.get(clientId).foreach(x => x ! ShutdownClient(clientId))
     clients.put(clientId, connectionHandler)
-    connectionHandler ! CommandObject(Protocol.LoginResponse, JsObject("clientId"->JsString(clientId)))
+
+    notificationManager ! QueryOfflineNotifications(clientId)
   }
 
   def queryClient(clientId: String, ask: ActorRef): Unit = {
@@ -48,7 +53,7 @@ class ClientManager(notificationManager: ActorRef) extends Actor {
   }
 
 
-  def processCommand(c: CommandObject, sender: ActorRef): Unit = {
+  private def processCommand(c: CommandObject, sender: ActorRef): Unit = {
     c.code match {
       case Protocol.SendNotification =>
         val clientId = c.data.fields.get("clientId").get.asInstanceOf[JsString].value
@@ -77,4 +82,8 @@ class ClientManager(notificationManager: ActorRef) extends Actor {
     notification.fields.+(timestamp).+(messageId).toJson.asJsObject
   }
 
+  private def resendOfflineNotification(c: JsObject): Unit = {
+    val clientId = c.fields.get("clientId").get.asInstanceOf[JsString].value
+    clients.get(clientId).foreach(x => x ! CommandObject(Protocol.SendNotification, c))
+  }
 }

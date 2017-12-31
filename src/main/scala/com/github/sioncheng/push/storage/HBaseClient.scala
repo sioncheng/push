@@ -84,6 +84,7 @@ class HBaseClient(conf: HBaseStorageConfig) extends Actor {
     confirmNotificationTable.put(put)
 
     deleteFlyingNotification(timestamp, messageId)
+    deleteOfflineNotification(clientId, timestamp, messageId)
   }
 
   def queryConfirmedNotification(clientId: String, beginTimestamp: Long, endTimestamp: Long): Unit = {
@@ -98,7 +99,8 @@ class HBaseClient(conf: HBaseStorageConfig) extends Actor {
   def saveOfflineNotification(notification: JsObject): Unit = {
     val clientId = notification.fields.get("clientId").head.asInstanceOf[JsString].value
     val timestamp = notification.fields.get("timestamp").head.asInstanceOf[JsNumber].value.toLong
-    val put = new Put(Bytes.toBytes(s"$clientId-$timestamp"))
+    val messageId = notification.fields.get("messageId").get.asInstanceOf[JsString].value
+    val put = new Put(Bytes.toBytes(s"$clientId-$timestamp-$messageId"))
     put.addColumn(Bytes.toBytes("f1"), Bytes.toBytes("q1"), Bytes.toBytes(notification.toString()))
     offlineNotificationTable.put(put)
   }
@@ -146,6 +148,11 @@ class HBaseClient(conf: HBaseStorageConfig) extends Actor {
   private def deleteFlyingNotification(timestamp: Long, messageId: String): Unit = {
     val del = new Delete(Bytes.toBytes(s"$timestamp-$messageId"))
     flyingNotificationTable.delete(del)
+  }
+
+  private def deleteOfflineNotification(clientId: String, timestamp: Long, messageId: String): Unit = {
+    val del = new Delete(Bytes.toBytes(s"$clientId-$timestamp-$messageId"))
+    offlineNotificationTable.delete(del)
   }
 
   private def query(scan: Scan, table: Table): Seq[JsObject] = {

@@ -3,12 +3,12 @@ package com.github.sioncheng.push.tcp
 import java.net.InetSocketAddress
 
 import akka.actor.{Actor, ActorRef}
-import akka.io.Tcp.{Close, PeerClosed, Received, Write}
+import akka.io.Tcp._
 import com.github.sioncheng.push.log.LogUtil
 import com.github.sioncheng.push.tcp.ConnectionStatus.ConnectionStatus
 import com.github.sioncheng.push.tcp.Messages.{ClientLogon, ClientPeerClosed}
 import com.github.sioncheng.push.tcp.Protocol.CommandObject
-import spray.json.JsString
+import spray.json.{JsObject, JsString}
 
 object ConnectionStatus extends Enumeration {
   type ConnectionStatus = Value
@@ -33,13 +33,22 @@ class ConnectionHandler(remoteAddress: InetSocketAddress, connection: ActorRef, 
       } else {
         command.head.commands.foreach(processCommand _)
       }
+    case Close =>
+      LogUtil.warn(logTitle, s"close event $clientId $remoteAddress")
+      close()
     case PeerClosed =>
+      LogUtil.warn(logTitle, s"peer closed event $clientId $remoteAddress")
       clientManager ! ClientPeerClosed(clientId, remoteAddress)
-      context stop self
+      close()
+    case ErrorClosed(cause) =>
+      LogUtil.warn(logTitle, s"error closed $cause")
+      close()
     case cmd: CommandObject =>
       val msg = Protocol.serializeCommand(cmd)
       LogUtil.debug(logTitle, s"send to client ${msg.utf8String}")
       connection ! Write(msg)
+    case x =>
+      LogUtil.warn(logTitle, s"what? $x")
   }
 
   def processCommand(command: Either[CommandObject, Exception]): Unit = {
@@ -66,6 +75,9 @@ class ConnectionHandler(remoteAddress: InetSocketAddress, connection: ActorRef, 
             val clientIdString = cmd.data.fields.get("clientId").head.asInstanceOf[JsString].value
             clientId = Some(clientIdString)
             status = ConnectionStatus.Logon
+
+            self ! CommandObject(Protocol.LoginResponse, JsObject("clientId"->JsString(clientIdString)))
+
             clientManager ! ClientLogon(clientIdString, remoteAddress)
           case _ =>
             unexpectedCommandException(new Exception(cmd.toString))
@@ -88,6 +100,12 @@ class ConnectionHandler(remoteAddress: InetSocketAddress, connection: ActorRef, 
   def unexpectedCommandException(ex: Exception): Unit = {
     connection ! Close
     clientManager ! ClientPeerClosed(clientId, remoteAddress)
+    context stop self
+  }
+
+  private def close(): Unit = {
+    clientManager ! ClientPeerClosed(clientId, remoteAddress)
+    connection ! Close
     context stop self
   }
 }
