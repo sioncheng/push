@@ -21,7 +21,7 @@ class HBaseClientSpec extends TestKit(ActorSystem("HBaseClientSpec"))
     TestKit.shutdownActorSystem(system)
   }
 
-  val hBaseClientConfig = HBaseStorageConfig( "172.16.25.129", 2181)
+  val hBaseClientConfig = HBaseStorageConfig( "172.16.25.130", 2181)
   val hbaseClient = system.actorOf(Props(classOf[HBaseClient], hBaseClientConfig))
 
   "hbase client " must {

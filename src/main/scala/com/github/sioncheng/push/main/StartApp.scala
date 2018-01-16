@@ -14,7 +14,7 @@ object StartApp extends App {
   val system = ActorSystem("push-server")
 
 
-  val hBaseConfiguration = HBaseStorageConfig("172.16.25.129", 2181)
+  val hBaseConfiguration = HBaseStorageConfig("172.16.25.130", 2181)
   val hbaseClient = system.actorOf(Props(classOf[HBaseClient], hBaseConfiguration))
   val notificationManager = system.actorOf(Props(classOf[NotificationManager], hbaseClient))
 
