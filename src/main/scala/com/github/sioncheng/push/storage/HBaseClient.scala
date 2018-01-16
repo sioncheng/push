@@ -1,6 +1,6 @@
 package com.github.sioncheng.push.storage
 
-import akka.actor.Actor
+import akka.actor.{Actor, ActorRef}
 import com.github.sioncheng.push.conf.HBaseStorageConfig
 import com.github.sioncheng.push.log.LogUtil
 import org.apache.hadoop.hbase.{HBaseConfiguration, TableName}
@@ -19,7 +19,7 @@ case class QueryFlyingNotification(beforeTimestamp: Long)
 case class QueryNotificationsResult(clientId: String, notifications: Seq[JsObject])
 case class CheckAndSaveUnconfirmedNotification(notifications: Seq[JsObject])
 
-class HBaseClient(conf: HBaseStorageConfig) extends Actor {
+class HBaseClient(conf: HBaseStorageConfig, elasticClient: ActorRef) extends Actor {
 
   val logTitle = "HBase Client"
 
@@ -29,9 +29,10 @@ class HBaseClient(conf: HBaseStorageConfig) extends Actor {
   , flyingNotificationTable) = init()
 
   override def receive: Receive = {
-    case SaveConfirmedNotification(notification) =>
+    case s @ SaveConfirmedNotification(notification) =>
       LogUtil.debug(logTitle, s"save confirmed notification ${notification.toString()}")
       saveConfirmedNotification(notification)
+      elasticClient ! s
     case QueryConfirmedNotifications(clientId, beginTimestamp, endTimestamp) =>
       LogUtil.debug(logTitle, s"query confirmed notification $clientId, $beginTimestamp, $endTimestamp")
       queryConfirmedNotification(clientId, beginTimestamp, endTimestamp)
@@ -41,9 +42,10 @@ class HBaseClient(conf: HBaseStorageConfig) extends Actor {
     case QueryOfflineNotifications(clientId) =>
       LogUtil.debug(logTitle, s"query offline notification ${clientId}")
       queryOfflineNotification(clientId)
-    case SaveFlyingNotification(notification) =>
+    case s @ SaveFlyingNotification(notification) =>
       LogUtil.debug(logTitle, s"save flying notification ${notification.toString()}")
       saveFlyingNotification(notification)
+      elasticClient ! s
     case QueryFlyingNotification(beforeTimestamp) =>
       LogUtil.debug(logTitle, s"query flying notification $beforeTimestamp")
       queryFlyingNotification(beforeTimestamp)
