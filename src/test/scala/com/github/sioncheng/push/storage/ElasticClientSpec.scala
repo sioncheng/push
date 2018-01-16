@@ -22,16 +22,22 @@ class ElasticClientSpec extends TestKit(ActorSystem("ElasticClientSpec"))
   val client = system.actorOf(props)
 
   "A elastic client" must {
-    "should be able to save flying notification" in {
+    "should be able to save notification trace" in {
 
-      client ! SaveFlyingNotification(createNotification())
+      val clientId = s"cid-1234567890-${DateUtil.getTimestampOfNow()}"
+      val messageId = s"1234567890-${DateUtil.getTimestampOfNow()}"
+
+      client ! SaveFlyingNotification(createNotification(clientId, messageId))
+
+      client ! SaveConfirmedNotification(createNotification(clientId, messageId))
+
 
       Thread.sleep(2000)
     }
   }
 
-  private def createNotification(): JsObject = JsObject("messageId"->JsString(s"1234567890-${DateUtil.getTimestampOfNow()}")
-    ,"clientId"->JsString(s"cid-1234567890-${DateUtil.getTimestampOfNow()}")
+  private def createNotification(clientId: String, messageId: String): JsObject = JsObject("messageId"->JsString(messageId)
+    ,"clientId"->JsString(clientId)
     ,"title"->JsString("notification title")
     ,"body"->JsString(s"notification body ${DateUtil.getTimestampOfNow()}"))
 

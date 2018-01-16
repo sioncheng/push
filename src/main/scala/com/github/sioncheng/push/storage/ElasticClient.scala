@@ -64,8 +64,6 @@ class ElasticClient(esServerConfig: ElasticSearchServerConfig) extends Actor {
   }
 
   private def saveNotification(notification: JsObject, client: TransportClient, status: String): Unit = {
-    val data = notification.fields.+("status"->JsString(status))
-    println(data)
     val builder = XContentFactory.jsonBuilder().startObject();
     notification.fields.foreach(kv => {
       if (kv._2.isInstanceOf[JsString]) {
